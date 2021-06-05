@@ -45,17 +45,18 @@ class Transpose1dLayer_multi_input(nn.Module):
 
 class WaveGANGenerator(nn.Module):
     def __init__(self, model_size=50, ngpus=1, num_channels=8,
-                 latent_dim=100, post_proc_filt_len=512,
+                 #latent_dim=100, 
+                 post_proc_filt_len=512,
                  verbose=False, upsample=True):
         super(WaveGANGenerator, self).__init__()
         self.ngpus = ngpus
         self.model_size = model_size  # d
         self.num_channels = num_channels  # c
-        self.latent_di = latent_dim
+        #self.latent_di = latent_dim
         self.post_proc_filt_len = post_proc_filt_len
         self.verbose = verbose
         # "Dense" is the same meaning as fully connection.
-        self.fc1 = nn.Linear(latent_dim, 10 * model_size)
+        #self.fc1 = nn.Linear(latent_dim, 10 * model_size)
 
         stride = 4
         if upsample:
@@ -82,7 +83,7 @@ class WaveGANGenerator(nn.Module):
 
         for m in self.modules():
             if isinstance(m, nn.ConvTranspose1d) or isinstance(m, nn.Linear):
-                nn.init.kaiming_normal(m.weight.data)
+                nn.init.kaiming_normal_(m.weight.data)
 
     def forward(self, x):
 
@@ -214,7 +215,7 @@ class WaveGANDiscriminator(nn.Module):
 
         for m in self.modules():
             if isinstance(m, nn.Conv1d) or isinstance(m, nn.Linear):
-                nn.init.kaiming_normal(m.weight.data)
+                nn.init.kaiming_normal_(m.weight.data)
 
     def forward(self, x):
         x = F.leaky_relu(self.conv1(x), negative_slope=self.alpha)

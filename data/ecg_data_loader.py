@@ -4,6 +4,7 @@ import pandas as pd
 import torch
 import torch.nn as nn
 import numpy as np
+import glob
 
 
 #====== Only for testing ========================
@@ -34,8 +35,8 @@ class ECGDataALL(Dataset):
 
         self.df_gt = self.df_gt.dropna(subset=columns_to_return_gt) # droped NaN values
         #self.noise = 0.00000001 # noise to remove floating point exception
-        print(self.df_gt.head())
-        print(self.df_gt.tail())
+        #print(self.df_gt.head())
+        #print(self.df_gt.tail())
 
     def __len__(self):
         return len(self.df_gt)
@@ -142,11 +143,61 @@ class ECGDataALL(Dataset):
        # print(type(gen_gt))
         
         # Return sample at the end
-        sample = {'ecg_signals': ecg_signals, 'gt': gt, 'gen_gt': gen_gt, 'gt_code': gt_code, 'fake_gt_code': fake_gt_code}
+        sample = {'ecg_signals': ecg_signals}
 
         if self.transform:
             pass
             #sample = self.transform(sample["ecg_signals"])
+
+        return sample
+
+
+class ECGDataSimple(Dataset):
+    def __init__(self, data_dirs, norm_num=6000, cropping=None, transform=None):
+        
+        self.all_ecg_files = []
+        self.norm_num = norm_num
+        self.cropping = cropping
+        
+        for data_dir in data_dirs:
+            ecg_files = glob.glob(data_dir + "/*")
+            self.all_ecg_files = self.all_ecg_files + ecg_files
+
+        self.transform = transform
+
+    def __len__(self):
+        return len(self.all_ecg_files)
+
+    def __getitem__(self, idx):
+        
+        # Get file name of asc file
+        asc_file_name = self.all_ecg_files[idx] 
+        
+        ecg_signals = pd.read_csv(asc_file_name,header=None, sep=" ") # read into dataframe
+        ecg_signals = torch.tensor(ecg_signals.values) # convert dataframe values to tensor
+        
+      
+        ecg_signals = ecg_signals.float()
+        
+        #print(ecg_signals.shape)
+        ecg_signals = ecg_signals  / self.norm_num # Normalizing aplitude of voltage levels 
+
+        #cropping
+        if self.cropping:
+            ecg_signals = ecg_signals[self.cropping[0]:self.cropping[1], :]
+        
+        # Transposing the ecg signals
+        ecg_signals = ecg_signals.t() 
+        #ecg_signals = ecg_signals.unsqueeze(0)
+     
+  
+
+        if self.transform:
+            ecg_signals = self.transform(ecg_signals)
+            #sample = self.transform(sample["ecg_signals"])
+
+        # Return sample at the end
+        sample = {'ecg_signals': ecg_signals}
 
         return sample
     

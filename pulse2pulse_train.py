@@ -21,25 +21,31 @@ from torch import autograd
 
 
 # Model specific
-from data.ECGDataLoader_RHTM_gt_code_only_normal_10s import ECGDataALL as ecg_data
-from wave_gan import WaveGANGenerator_wave2wave_005 as WaveGANGenerator
-from wave_gan import WaveGANDiscriminator_wave2wave_005 as WaveGANDiscriminator
-from wave_gan.utils import calc_gradient_penalty, get_plots_RHTM_10s, get_plots_all_RHTM_10s
+#from data.ECGDataLoader_RHTM_gt_code_only_normal_10s import ECGDataALL as ecg_data
+#from wave_gan import WaveGANGenerator_wave2wave_005 as WaveGANGenerator
+#from wave_gan import WaveGANDiscriminator_wave2wave_005 as WaveGANDiscriminator
+#from wave_gan.utils import calc_gradient_penalty, get_plots_RHTM_10s, get_plots_all_RHTM_10s
+
+#from data.ecg_data_loader import ECGDataALL as ecg_data
+from data.ecg_data_loader import ECGDataSimple as ecg_data
+from models.pulse2pulse import WaveGANGenerator as Pulse2PuseGenerator
+from models.pulse2pulse import WaveGANDiscriminator as Pulse2PulseDiscriminator
+from utils.utils import calc_gradient_penalty, get_plots_RHTM_10s, get_plots_all_RHTM_10s
 
 torch.manual_seed(0)
 np.random.seed(0)
 parser = argparse.ArgumentParser()
 
 # Hardware
-
 parser.add_argument("--device_id", type=int, default=0, help="Device ID to run the code")
-parser.add_argument("--py_file",default=os.path.abspath(__file__)) # store current python file
+parser.add_argument("--exp_name", type=str, required=True, help="A name to the experiment which is used to save checkpoitns and tensorboard output")
+# parser.add_argument("--py_file",default=os.path.abspath(__file__)) # store current python file
 
 
 #==============================
 # Directory and file handling
 #==============================
-parser.add_argument("--data_root", default=["/home/vajira/ecg/gesus/asc/rhythm", 
+parser.add_argument("--data_dirs", default=["/home/vajira/ecg/gesus/asc/rhythm", 
                                             "/home/vajira/ecg/int99/asc/rhythm"], help="Data roots")
 
 parser.add_argument("--data_csv", default=["/home/vajira/ecg/gesus/asc/ground_truth.csv",
@@ -48,11 +54,11 @@ parser.add_argument("--data_csv", default=["/home/vajira/ecg/gesus/asc/ground_tr
 parser.add_argument("--columns_to_return", default=["QOnset", "QOffset", "POnset", "POffset", "TOffset"], help="coloumns to return")
 
 parser.add_argument("--out_dir", 
-                    default="/home/vajira/DL/ecggan_out",
+                    default="/home/vajira/DL/Pulse2Pulse_out/output",
                     help="Main output dierectory")
 
 parser.add_argument("--tensorboard_dir", 
-                    default="/home/vajira/DL/ecg_tensorboard",
+                    default="/home/vajira/DL/Pulse2Pulse_out/tensorboard",
                     help="Folder to save output of tensorboard")
 #======================
 # Hyper parameters
@@ -74,8 +80,6 @@ parser.add_argument("--checkpoint_path", default="", help="Check point path to r
 
 parser.add_argument('-ms', '--model_size', type=int, default=50,
                         help='Model size parameter used in WaveGAN')
-#parser.add_argument('-ms_G', '--model_size_G', type=int, default=50,
-#                        help='Model size parameter used in WaveGAN G()')
 parser.add_argument('--lmbda', default=10.0, help="Gradient penalty regularization factor")
 
 # Action handling 
@@ -102,12 +106,12 @@ os.makedirs(opt.out_dir, exist_ok=True)
 
 
 # make subfolder in the output folder 
-py_file_name = opt.py_file.split("/")[-1] # Get python file name (soruce code name)
-checkpoint_dir = os.path.join(opt.out_dir, py_file_name + "/checkpoints")
+# py_file_name = opt.py_file.split("/")[-1] # Get python file name (soruce code name)
+checkpoint_dir = os.path.join(opt.out_dir, opt.exp_name + "/checkpoints")
 os.makedirs(checkpoint_dir, exist_ok=True)
 
 # make tensorboard subdirectory for the experiment
-tensorboard_exp_dir = os.path.join(opt.tensorboard_dir, py_file_name)
+tensorboard_exp_dir = os.path.join(opt.tensorboard_dir, opt.exp_name)
 os.makedirs( tensorboard_exp_dir, exist_ok=True)
 
 
@@ -123,7 +127,8 @@ writer = SummaryWriter(tensorboard_exp_dir)
 # Prepare Data
 #==========================================
 def prepare_data():
-    dataset =  ecg_data(opt.data_csv, opt.data_root, opt.columns_to_return)
+    dataset =  ecg_data(opt.data_dirs, norm_num=6000, cropping=None, transform=None)
+    print("Dataset size=", len(dataset))
     
     dataloader = torch.utils.data.DataLoader( dataset,
         batch_size=opt.bs,
@@ -138,12 +143,11 @@ def prepare_data():
 #===============================================
 
 def prepare_model():
-    netG = WaveGANGenerator(model_size=opt.model_size, ngpus=opt.ngpus, latent_dim=opt.latent_dim, upsample=True)
-    netD = WaveGANDiscriminator(model_size=opt.model_size, ngpus=opt.ngpus)
+    netG = Pulse2PuseGenerator(model_size=opt.model_size, ngpus=opt.ngpus, upsample=True)
+    netD = Pulse2PulseDiscriminator(model_size=opt.model_size, ngpus=opt.ngpus)
 
     netG = netG.to(device)
     netD = netD.to(device)
-
 
     return netG, netD
 
@@ -154,7 +158,6 @@ def run_train():
     netG, netD = prepare_model()
     optimizerG = optim.Adam(netG.parameters(), lr=opt.lr, betas=(opt.b1, opt.b2))
     optimizerD = optim.Adam(netD.parameters(), lr=opt.lr, betas=(opt.b1, opt.b2))
-
 
     dataloaders = prepare_data() 
     train(netG, netD, optimizerG, optimizerD, dataloaders)
@@ -380,8 +383,8 @@ def check_model_graph():
    # inputs = inputs.to(device, torch.float)
     #print(inputs.shape)
     print(netG)
-    netG = netG.cuda()
-    netD = netD.cuda()
+    netG = netG.to(device)
+    netD = netD.to(device)
    # print(netD)
     #netG = netG.to("cpu")
     #dummy_input = Variable(torch.rand(13, 90, 64, 64))
