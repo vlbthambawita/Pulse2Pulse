@@ -21,12 +21,7 @@ from torch import autograd
 
 
 # Model specific
-#from data.ECGDataLoader_RHTM_gt_code_only_normal_10s import ECGDataALL as ecg_data
-#from wave_gan import WaveGANGenerator_wave2wave_005 as WaveGANGenerator
-#from wave_gan import WaveGANDiscriminator_wave2wave_005 as WaveGANDiscriminator
-#from wave_gan.utils import calc_gradient_penalty, get_plots_RHTM_10s, get_plots_all_RHTM_10s
 
-#from data.ecg_data_loader import ECGDataALL as ecg_data
 from data.ecg_data_loader import ECGDataSimple as ecg_data
 from models.pulse2pulse import WaveGANGenerator as Pulse2PuseGenerator
 from models.pulse2pulse import WaveGANDiscriminator as Pulse2PulseDiscriminator
@@ -46,12 +41,7 @@ parser.add_argument("--exp_name", type=str, required=True, help="A name to the e
 # Directory and file handling
 #==============================
 parser.add_argument("--data_dirs", default=["/home/vajira/ecg/gesus/asc/rhythm", 
-                                            "/home/vajira/ecg/int99/asc/rhythm"], help="Data roots")
-
-parser.add_argument("--data_csv", default=["/home/vajira/ecg/gesus/asc/ground_truth.csv",
-          "/home/vajira/ecg/int99/asc/ground_truth.csv"], help="Ground Truth CSVs")
-
-parser.add_argument("--columns_to_return", default=["QOnset", "QOffset", "POnset", "POffset", "TOffset"], help="coloumns to return")
+                                            "/home/vajira/ecg/int99/asc/rhythm"], help="Data roots", nargs="*")
 
 parser.add_argument("--out_dir", 
                     default="/home/vajira/DL/Pulse2Pulse_out/output",
@@ -71,12 +61,10 @@ parser.add_argument("--b2", type=float, default=0.9, help="adam: decay of first 
 parser.add_argument("--num_epochs", type=int, default=4000, help="number of epochs of training")
 parser.add_argument("--start_epoch", type=int, default=0, help="Start epoch in retraining")
 parser.add_argument("--ngpus", type=int, default=1, help="Number of GPUs used in models")
-parser.add_argument("--latent_dim", type=int, default=100, help="Dimension of the latent vector")
 parser.add_argument("--checkpoint_interval", type=int, default=25, help="Interval to save checkpoint models")
 
 # Checkpoint path to retrain or test models
 parser.add_argument("--checkpoint_path", default="", help="Check point path to retrain or test models")
-
 
 parser.add_argument('-ms', '--model_size', type=int, default=50,
                         help='Model size parameter used in WaveGAN')
@@ -106,7 +94,6 @@ os.makedirs(opt.out_dir, exist_ok=True)
 
 
 # make subfolder in the output folder 
-# py_file_name = opt.py_file.split("/")[-1] # Get python file name (soruce code name)
 checkpoint_dir = os.path.join(opt.out_dir, opt.exp_name + "/checkpoints")
 os.makedirs(checkpoint_dir, exist_ok=True)
 
@@ -141,7 +128,6 @@ def prepare_data():
 #===============================================
 # Prepare models
 #===============================================
-
 def prepare_model():
     netG = Pulse2PuseGenerator(model_size=opt.model_size, ngpus=opt.ngpus, upsample=True)
     netD = Pulse2PulseDiscriminator(model_size=opt.model_size, ngpus=opt.ngpus)
@@ -163,8 +149,6 @@ def run_train():
     train(netG, netD, optimizerG, optimizerD, dataloaders)
 
 def train(netG, netD, optimizerG, optimizerD, dataloader):
-
-    #train_iter = iter(dataloader)
 
     for epoch in tqdm(range(opt.start_epoch + 1, opt.start_epoch + opt.num_epochs + 1)):
 
@@ -198,13 +182,6 @@ def train(netG, netD, optimizerG, optimizerD, dataloader):
             #############################
             # (1) Train Discriminator
             #############################
-            
-            #real_ecgs = sample["ecg_signals"]
-            #b_size = real_ecgs.size(0)
-
-            #for iter_dis in range(5):
-                
-            #sample = next(train_iter)
 
             real_ecgs = sample["ecg_signals"].to(device)
             #print("real ecgs shape", real_ecgs.shape)
@@ -370,29 +347,13 @@ def run_retrain():
 #====================================
 def check_model_graph():
     netG, netD = prepare_model()
-
-    #netG = netG.cpu()
-    #netD = netD.cpu()
-
-    #summary(model, (9, 256, 256)) # this run on GPU
-    #model = model.to('cpu')
-    #dataloaders = prepare_data()
-    #sample = next(iter(dataloaders["train"]))
-
-    #inputs = sample["features"]
-   # inputs = inputs.to(device, torch.float)
-    #print(inputs.shape)
     print(netG)
     netG = netG.to(device)
     netD = netD.to(device)
-   # print(netD)
-    #netG = netG.to("cpu")
-    #dummy_input = Variable(torch.rand(13, 90, 64, 64))
+
     summary(netG, (8,5000))
     summary(netD, (8, 5000))
-    #dummy_input = Variable(torch.rand(13, 90, 64, 64))
-    
-    #writer.add_graph(model, dummy_input) # this need the model on CPU
+
 
 
 
