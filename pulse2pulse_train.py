@@ -40,8 +40,8 @@ parser.add_argument("--exp_name", type=str, required=True, help="A name to the e
 #==============================
 # Directory and file handling
 #==============================
-parser.add_argument("--data_dirs", default=["/home/vajira/ecg/gesus/asc/rhythm", 
-                                            "/home/vajira/ecg/int99/asc/rhythm"], help="Data roots", nargs="*")
+parser.add_argument("--data_dirs", default=["/home/vajira/DL/Pulse2Pulse/sample_ecg_data", 
+                                            ], help="Data roots", nargs="*")
 
 parser.add_argument("--out_dir", 
                     default="/home/vajira/DL/Pulse2Pulse_out/output",
@@ -53,7 +53,7 @@ parser.add_argument("--tensorboard_dir",
 #======================
 # Hyper parameters
 #======================
-parser.add_argument("--bs", type=int, default=32, help="Mini batch size")
+parser.add_argument("--bs", type=int, default=1, help="Mini batch size")
 parser.add_argument("--lr", type=float, default=0.0001, help="Learning rate for training")
 parser.add_argument("--b1", type=float, default=0.5, help="adam: decay of first order momentum of gradient")
 parser.add_argument("--b2", type=float, default=0.9, help="adam: decay of first order momentum of gradient")
@@ -223,6 +223,7 @@ def train(netG, netD, optimizerG, optimizerD, dataloader):
             D_cost_train_cpu = D_cost_train.data.cpu()
             D_wass_train_cpu = D_wass_train.data.cpu()
 
+
             D_cost_train_epoch.append(D_cost_train_cpu)
             D_wass_train_epoch.append(D_wass_train_cpu)
 
@@ -257,6 +258,7 @@ def train(netG, netD, optimizerG, optimizerD, dataloader):
                 # Record costs
                 #if cuda:
                 G_cost_cpu = G_cost.data.cpu()
+                #print("g_cost=",G_cost_cpu)
                 G_cost_epoch.append(G_cost_cpu)
                 #print("Epoch{} - {}_G_cost_cpu:{}".format(epoch, i, G_cost_cpu))
                 #G_cost_epoch.append(G_cost_cpu.data.numpy())
@@ -268,7 +270,8 @@ def train(netG, netD, optimizerG, optimizerD, dataloader):
                 real_ecgs_to_plot = real_ecgs
                 fake_to_plot = fake
             #    break
-        
+        #print(G_cost_epoch)
+
         D_cost_train_epoch_avg = sum(D_cost_train_epoch) / float(len(D_cost_train_epoch))
         D_wass_train_epoch_avg = sum(D_wass_train_epoch) / float(len(D_wass_train_epoch))
         G_cost_epoch_avg = sum(G_cost_epoch) / float(len(G_cost_epoch))
