@@ -34,17 +34,26 @@ More parameters are in the pulse2pulse_train.py file. For example, output direct
 ---
 ## Citation:
 ```latex
-@article {Thambawita2021.04.27.21256189,
-	author = {Thambawita, Vajira and Isaksen, Jonas L. and Hicks, Steven A. and Ghouse, Jonas and Ahlberg, Gustav and Linneberg, Allan and Grarup, Niels and Ellervik, Christina and Olesen, Morten Salling and Hansen, Torben and Graff, Claus and Holstein-Rathlou, Niels-Henrik and Str{\"u}mke, Inga and Hammer, Hugo L. and Maleckar, Molly and Halvorsen, P{\r a}l and Riegler, Michael A. and Kanters, J{\o}rgen K.},
-	title = {DeepFake electrocardiograms: the key for open science for artificial intelligence in medicine},
-	elocation-id = {2021.04.27.21256189},
+
+@article{cite-key,
+	author = {Thambawita, Vajira and Isaksen, Jonas L. and Hicks, Steven A. and Ghouse, Jonas and Ahlberg, Gustav and Linneberg, Allan and Grarup, Niels and Ellervik, Christina and Olesen, Morten Salling and Hansen, Torben and Graff, Claus and Holstein-Rathlou, Niels-Henrik and Str{\"u}mke, Inga and Hammer, Hugo L. and Maleckar, Mary M. and Halvorsen, P{\aa}l and Riegler, Michael A. and Kanters, J{\o}rgen K.},
+	da = {2021/11/09},
+	date-added = {2021-11-28 10:10:31 +0530},
+	date-modified = {2021-11-28 10:10:31 +0530},
+	doi = {10.1038/s41598-021-01295-2},
+	id = {Thambawita2021},
+	isbn = {2045-2322},
+	journal = {Scientific Reports},
+	number = {1},
+	pages = {21896},
+	title = {DeepFake electrocardiograms using generative adversarial networks are the beginning of the end for privacy issues in medicine},
+	ty = {JOUR},
+	url = {https://doi.org/10.1038/s41598-021-01295-2},
+	volume = {11},
 	year = {2021},
-	doi = {10.1101/2021.04.27.21256189},
-	publisher = {Cold Spring Harbor Laboratory Press},
-	URL = {https://www.medrxiv.org/content/early/2021/05/10/2021.04.27.21256189.1},
-	eprint = {https://www.medrxiv.org/content/early/2021/05/10/2021.04.27.21256189.1.full.pdf},
-	journal = {medRxiv}
+	Bdsk-Url-1 = {https://doi.org/10.1038/s41598-021-01295-2}
 }
+
 
 ```
 
