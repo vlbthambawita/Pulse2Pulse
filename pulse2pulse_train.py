@@ -189,6 +189,7 @@ def train(netG, netD, optimizerG, optimizerD, dataloader):
 
             netD.zero_grad()
 
+
             # Noise
             noise = torch.Tensor(b_size, 8, 5000).uniform_(-1, 1)
             noise = noise.to(device)
