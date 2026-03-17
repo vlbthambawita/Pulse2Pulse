@@ -1,0 +1,44 @@
+# ============================================
+# Pulse2Pulse Training Configuration
+# ============================================
+
+# Action: train | retrain | inference | check
+action: train
+
+# Hardware
+device_id: 0
+
+# Experiment
+exp_name: ptbxl_exp1
+out_dir: /home/vajira/DL/Pulse2Pulse_out/output
+
+# Weights & Biases
+wandb_project: Pulse2Pulse
+
+# ============================================
+# Dataset
+# ============================================
+dataset: ptbxl          # simple | ptbxl
+ptbxl_path: /work/vajira/DATA/ptb-xl/1.0.3
+ptbxl_sampling_rate: 500
+
+# Used only when dataset: simple
+data_dirs:
+  - /home/vajira/DL/Pulse2Pulse/sample_ecg_data
+
+# ============================================
+# Hyper parameters
+# ============================================
+bs: 32
+lr: 0.0001
+b1: 0.5
+b2: 0.9
+num_epochs: 4000
+start_epoch: 0
+ngpus: 1
+checkpoint_interval: 25
+model_size: 50
+lmbda: 10.0
+
+# Checkpoint path (used for retrain)
+checkpoint_path: ""

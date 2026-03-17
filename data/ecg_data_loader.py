@@ -5,6 +5,7 @@ import torch
 import torch.nn as nn
 import numpy as np
 import glob
+import wfdb
 
 
 #====== Only for testing ========================
@@ -202,6 +203,73 @@ class ECGDataSimple(Dataset):
         return sample
     
     
+class PTBXLDataset(Dataset):
+    """
+    PTBXL dataset loader using fold-based splits.
+    Folds 1-8: training, fold 9: validation, fold 10: testing.
+
+    Args:
+        ptbxl_path (str): Root path to the PTBXL dataset (contains ptbxl_database.csv).
+        split (str): One of 'train', 'val', 'test'.
+        sampling_rate (int): 100 or 500 Hz. Uses filename_lr (100 Hz) or filename_hr (500 Hz).
+        leads (list[int]): Indices of leads to select from the 12-lead ECG. Defaults to first 8.
+        norm_num (float): Normalization divisor applied to the raw signal values.
+        transform: Optional PyTorch transform.
+    """
+
+    TRAIN_FOLDS = list(range(1, 9))  # folds 1-8
+    VAL_FOLDS = [9]
+    TEST_FOLDS = [10]
+
+    def __init__(self, ptbxl_path, split='train', sampling_rate=500,
+                 leads=None, norm_num=1.0, transform=None):
+        assert split in ('train', 'val', 'test'), "split must be 'train', 'val', or 'test'"
+        assert sampling_rate in (100, 500), "sampling_rate must be 100 or 500"
+
+        self.ptbxl_path = ptbxl_path
+        self.sampling_rate = sampling_rate
+        self.norm_num = norm_num
+        self.transform = transform
+        # Default: I, II, V1, V2, V3, V4, V5, V6 (indices in PTBXL 12-lead order)
+        self.leads = leads if leads is not None else [0, 1, 6, 7, 8, 9, 10, 11]
+
+        fold_map = {'train': self.TRAIN_FOLDS, 'val': self.VAL_FOLDS, 'test': self.TEST_FOLDS}
+        target_folds = fold_map[split]
+
+        df = pd.read_csv(os.path.join(ptbxl_path, 'ptbxl_database.csv'), index_col='ecg_id')
+        self.filename_col = 'filename_lr' if sampling_rate == 100 else 'filename_hr'
+
+        df = df[df['strat_fold'].isin(target_folds)].reset_index(drop=True)
+
+        # Drop records where the .hea file is missing
+        ext = '.hea'
+        valid_mask = df[self.filename_col].apply(
+            lambda f: os.path.isfile(os.path.join(ptbxl_path, f + ext))
+        )
+        n_dropped = (~valid_mask).sum()
+        if n_dropped > 0:
+            print(f"[PTBXLDataset] Dropping {n_dropped} records with missing files ({split} split)")
+        self.df = df[valid_mask].reset_index(drop=True)
+
+    def __len__(self):
+        return len(self.df)
+
+    def __getitem__(self, idx):
+        record_path = os.path.join(self.ptbxl_path, self.df.iloc[idx][self.filename_col])
+        signal, _ = wfdb.rdsamp(record_path)  # shape: (samples, 12)
+
+        ecg_signals = torch.tensor(signal, dtype=torch.float32)  # (samples, 12)
+        ecg_signals = ecg_signals / self.norm_num
+
+        # Select leads and transpose to (leads, samples)
+        ecg_signals = ecg_signals[:, self.leads].t()  # (num_leads, samples)
+
+        if self.transform:
+            ecg_signals = self.transform(ecg_signals)
+
+        return {'ecg_signals': ecg_signals}
+
+
 if __name__ == "__main__":
     
     data_roots = [#"/home/vajira/ecg/GE/asc/medians", 

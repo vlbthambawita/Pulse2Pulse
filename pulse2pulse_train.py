@@ -4,6 +4,8 @@
 
 import argparse
 import os
+import yaml
+from types import SimpleNamespace
 from tqdm import tqdm
 import numpy as np
 
@@ -14,67 +16,31 @@ from torch.optim import lr_scheduler
 import torch.nn as nn
 from torchvision import models, transforms
 from torchvision.utils import save_image
-from torch.utils.tensorboard import SummaryWriter
+import wandb
 from torch.autograd import Variable
-from torchsummary import summary
+from torchinfo import summary
 from torch import autograd
 
 
 # Model specific
 
 from data.ecg_data_loader import ECGDataSimple as ecg_data
+from data.ecg_data_loader import PTBXLDataset
 from models.pulse2pulse import WaveGANGenerator as Pulse2PuseGenerator
 from models.pulse2pulse import WaveGANDiscriminator as Pulse2PulseDiscriminator
 from utils.utils import calc_gradient_penalty, get_plots_RHTM_10s, get_plots_all_RHTM_10s
 
 torch.manual_seed(0)
 np.random.seed(0)
+
 parser = argparse.ArgumentParser()
+parser.add_argument("--config", type=str, required=True, help="Path to YAML config file")
+args = parser.parse_args()
 
-# Hardware
-parser.add_argument("--device_id", type=int, default=0, help="Device ID to run the code")
-parser.add_argument("--exp_name", type=str, required=True, help="A name to the experiment which is used to save checkpoitns and tensorboard output")
-# parser.add_argument("--py_file",default=os.path.abspath(__file__)) # store current python file
+with open(args.config, "r") as f:
+    cfg = yaml.safe_load(f)
 
-
-#==============================
-# Directory and file handling
-#==============================
-parser.add_argument("--data_dirs", default=["/home/vajira/DL/Pulse2Pulse/sample_ecg_data", 
-                                            ], help="Data roots", nargs="*")
-
-parser.add_argument("--out_dir", 
-                    default="/home/vajira/DL/Pulse2Pulse_out/output",
-                    help="Main output dierectory")
-
-parser.add_argument("--tensorboard_dir", 
-                    default="/home/vajira/DL/Pulse2Pulse_out/tensorboard",
-                    help="Folder to save output of tensorboard")
-#======================
-# Hyper parameters
-#======================
-parser.add_argument("--bs", type=int, default=1, help="Mini batch size")
-parser.add_argument("--lr", type=float, default=0.0001, help="Learning rate for training")
-parser.add_argument("--b1", type=float, default=0.5, help="adam: decay of first order momentum of gradient")
-parser.add_argument("--b2", type=float, default=0.9, help="adam: decay of first order momentum of gradient")
-
-parser.add_argument("--num_epochs", type=int, default=4000, help="number of epochs of training")
-parser.add_argument("--start_epoch", type=int, default=0, help="Start epoch in retraining")
-parser.add_argument("--ngpus", type=int, default=1, help="Number of GPUs used in models")
-parser.add_argument("--checkpoint_interval", type=int, default=25, help="Interval to save checkpoint models")
-
-# Checkpoint path to retrain or test models
-parser.add_argument("--checkpoint_path", default="", help="Check point path to retrain or test models")
-
-parser.add_argument('-ms', '--model_size', type=int, default=50,
-                        help='Model size parameter used in WaveGAN')
-parser.add_argument('--lmbda', default=10.0, help="Gradient penalty regularization factor")
-
-# Action handling 
-parser.add_argument("action", type=str, help="Select an action to run", choices=["train", "retrain", "inference", "check"])
-
-
-opt = parser.parse_args()
+opt = SimpleNamespace(**cfg)
 print(opt)
 
 #==========================================
@@ -97,33 +63,41 @@ os.makedirs(opt.out_dir, exist_ok=True)
 checkpoint_dir = os.path.join(opt.out_dir, opt.exp_name + "/checkpoints")
 os.makedirs(checkpoint_dir, exist_ok=True)
 
-# make tensorboard subdirectory for the experiment
-tensorboard_exp_dir = os.path.join(opt.tensorboard_dir, opt.exp_name)
-os.makedirs( tensorboard_exp_dir, exist_ok=True)
-
-
-
 #==========================================
-# Tensorboard
+# Weights & Biases
 #==========================================
-# Initialize summary writer
-writer = SummaryWriter(tensorboard_exp_dir)
+wandb.init(project=opt.wandb_project, name=opt.exp_name, config=vars(opt))
 
 
 #==========================================
 # Prepare Data
 #==========================================
 def prepare_data():
-    dataset =  ecg_data(opt.data_dirs, norm_num=6000, cropping=None, transform=None)
-    print("Dataset size=", len(dataset))
-    
-    dataloader = torch.utils.data.DataLoader( dataset,
-        batch_size=opt.bs,
-        shuffle=True,
-        num_workers=8
-    )
+    if opt.dataset == "ptbxl":
+        train_dataset = PTBXLDataset(opt.ptbxl_path, split='train',
+                                     sampling_rate=opt.ptbxl_sampling_rate)
+        val_dataset   = PTBXLDataset(opt.ptbxl_path, split='val',
+                                     sampling_rate=opt.ptbxl_sampling_rate)
+        test_dataset  = PTBXLDataset(opt.ptbxl_path, split='test',
+                                     sampling_rate=opt.ptbxl_sampling_rate)
 
-    return dataloader
+        print("PTBXL - Train size:", len(train_dataset),
+              " Val size:", len(val_dataset),
+              " Test size:", len(test_dataset))
+
+        train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=opt.bs,
+                                                   shuffle=True, num_workers=8)
+        val_loader   = torch.utils.data.DataLoader(val_dataset, batch_size=opt.bs,
+                                                   shuffle=False, num_workers=8)
+        test_loader  = torch.utils.data.DataLoader(test_dataset, batch_size=opt.bs,
+                                                   shuffle=False, num_workers=8)
+        return {"train": train_loader, "val": val_loader, "test": test_loader}
+    else:
+        dataset = ecg_data(opt.data_dirs, norm_num=6000, cropping=None, transform=None)
+        print("Dataset size=", len(dataset))
+        dataloader = torch.utils.data.DataLoader(dataset, batch_size=opt.bs,
+                                                 shuffle=True, num_workers=8)
+        return {"train": dataloader, "val": None, "test": None}
 
 #===============================================
 # Prepare models
@@ -145,8 +119,8 @@ def run_train():
     optimizerG = optim.Adam(netG.parameters(), lr=opt.lr, betas=(opt.b1, opt.b2))
     optimizerD = optim.Adam(netD.parameters(), lr=opt.lr, betas=(opt.b1, opt.b2))
 
-    dataloaders = prepare_data() 
-    train(netG, netD, optimizerG, optimizerD, dataloaders)
+    dataloaders = prepare_data()
+    train(netG, netD, optimizerG, optimizerD, dataloaders["train"])
 
 def train(netG, netD, optimizerG, optimizerD, dataloader):
 
@@ -278,22 +252,22 @@ def train(netG, netD, optimizerG, optimizerD, dataloader):
         G_cost_epoch_avg = sum(G_cost_epoch) / float(len(G_cost_epoch))
 
         
-        writer.add_scalar("D_cost_train_epoch_avg",D_cost_train_epoch_avg ,epoch)
-        writer.add_scalar("D_wass_train_epoch_avg",D_wass_train_epoch_avg ,epoch)
-        writer.add_scalar("G_cost_epoch_avg ",G_cost_epoch_avg  ,epoch)
+        wandb.log({
+            "D_cost_train": D_cost_train_epoch_avg,
+            "D_wass_train": D_wass_train_epoch_avg,
+            "G_cost": G_cost_epoch_avg,
+        }, step=epoch)
 
         print("Epochs:{}\t\tD_cost:{}\t\t D_wass:{}\t\tG_cost:{}".format(
                     epoch, D_cost_train_epoch_avg, D_wass_train_epoch_avg, G_cost_epoch_avg))
 
-         # Save model
+        # Save model
         if epoch % opt.checkpoint_interval == 0:
             save_model(netG, netD, optimizerG, optimizerD, epoch)
             fig = get_plots_RHTM_10s(real_ecgs_to_plot[0].detach().cpu(), fake_to_plot[0].detach().cpu())
             fig_2 = get_plots_all_RHTM_10s(real_ecgs_to_plot.detach().cpu(), fake_to_plot.detach().cpu())
 
-            writer.add_figure("sample", fig, epoch)
-            writer.add_figure("sample_batch", fig_2, epoch)
-        #fig.savefig("{}.png".format(epoch))
+            wandb.log({"sample": wandb.Image(fig), "sample_batch": wandb.Image(fig_2)}, step=epoch)
 
 
 #=====================================
@@ -343,8 +317,8 @@ def run_retrain():
 
 
     dataloaders = prepare_data()
-    train(netG, netD, optimizerG, optimizerD, dataloaders)
-    
+    train(netG, netD, optimizerG, optimizerD, dataloaders["train"])
+
 
 #=====================================
 # Check model
@@ -365,6 +339,7 @@ if __name__ == "__main__":
 
     data_loaders = prepare_data()
     print(vars(opt))
+    print("Train size:", len(data_loaders["train"].dataset))
     print("Test OK")
 
     # Train or retrain or inference
@@ -383,5 +358,4 @@ if __name__ == "__main__":
         check_model_graph()
         print("Check pass")
 
-    # Finish tensorboard writer
-    writer.close()
+    wandb.finish()
