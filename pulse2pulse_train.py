@@ -73,13 +73,18 @@ wandb.init(project=opt.wandb_project, name=opt.exp_name, config=vars(opt))
 # Prepare Data
 #==========================================
 def prepare_data():
+    max_samples = getattr(opt, "max_samples", None)
+
     if opt.dataset == "ptbxl":
         train_dataset = PTBXLDataset(opt.ptbxl_path, split='train',
-                                     sampling_rate=opt.ptbxl_sampling_rate)
+                                     sampling_rate=opt.ptbxl_sampling_rate,
+                                     max_samples=max_samples)
         val_dataset   = PTBXLDataset(opt.ptbxl_path, split='val',
-                                     sampling_rate=opt.ptbxl_sampling_rate)
+                                     sampling_rate=opt.ptbxl_sampling_rate,
+                                     max_samples=max_samples)
         test_dataset  = PTBXLDataset(opt.ptbxl_path, split='test',
-                                     sampling_rate=opt.ptbxl_sampling_rate)
+                                     sampling_rate=opt.ptbxl_sampling_rate,
+                                     max_samples=max_samples)
 
         print("PTBXL - Train size:", len(train_dataset),
               " Val size:", len(val_dataset),
@@ -93,7 +98,8 @@ def prepare_data():
                                                    shuffle=False, num_workers=8)
         return {"train": train_loader, "val": val_loader, "test": test_loader}
     else:
-        dataset = ecg_data(opt.data_dirs, norm_num=6000, cropping=None, transform=None)
+        dataset = ecg_data(opt.data_dirs, norm_num=6000, cropping=None, transform=None,
+                           max_samples=max_samples)
         print("Dataset size=", len(dataset))
         dataloader = torch.utils.data.DataLoader(dataset, batch_size=opt.bs,
                                                  shuffle=True, num_workers=8)
@@ -275,7 +281,7 @@ def train(netG, netD, optimizerG, optimizerD, dataloader):
 #=====================================
 def save_model(netG, netD, optimizerG, optimizerD,  epoch):
    
-    check_point_name = py_file_name + "_epoch:{}.pt".format(epoch) # get code file name and make a name
+    check_point_name = opt.exp_name + "_epoch:{}.pt".format(epoch)
     check_point_path = os.path.join(checkpoint_dir, check_point_name)
     # save torch model
     torch.save({

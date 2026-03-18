@@ -9,7 +9,7 @@ action: train
 device_id: 0
 
 # Experiment
-exp_name: pulse2pulse_exp_ptbxl_full
+exp_name: ptbxl_exp_test
 out_dir: /home/vajira/DL/Pulse2Pulse_out/output
 
 # Weights & Biases
@@ -27,7 +27,7 @@ data_dirs:
   - /home/vajira/DL/Pulse2Pulse/sample_ecg_data
 
 # Limit samples per split for quick testing (set to null to use all data)
-max_samples: null
+max_samples: 1000
 
 # ============================================
 # Hyper parameters
@@ -39,7 +39,7 @@ b2: 0.9
 num_epochs: 4000
 start_epoch: 0
 ngpus: 1
-checkpoint_interval: 25
+checkpoint_interval: 1
 model_size: 50
 lmbda: 10.0
 

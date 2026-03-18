@@ -154,15 +154,18 @@ class ECGDataALL(Dataset):
 
 
 class ECGDataSimple(Dataset):
-    def __init__(self, data_dirs, norm_num=6000, cropping=None, transform=None):
-        
+    def __init__(self, data_dirs, norm_num=6000, cropping=None, transform=None, max_samples=None):
+
         self.all_ecg_files = []
         self.norm_num = norm_num
         self.cropping = cropping
-        
+
         for data_dir in data_dirs:
             ecg_files = glob.glob(data_dir + "/*")
             self.all_ecg_files = self.all_ecg_files + ecg_files
+
+        if max_samples is not None:
+            self.all_ecg_files = self.all_ecg_files[:max_samples]
 
         self.transform = transform
 
@@ -222,7 +225,7 @@ class PTBXLDataset(Dataset):
     TEST_FOLDS = [10]
 
     def __init__(self, ptbxl_path, split='train', sampling_rate=500,
-                 leads=None, norm_num=1.0, transform=None):
+                 leads=None, norm_num=1.0, transform=None, max_samples=None):
         assert split in ('train', 'val', 'test'), "split must be 'train', 'val', or 'test'"
         assert sampling_rate in (100, 500), "sampling_rate must be 100 or 500"
 
@@ -250,6 +253,9 @@ class PTBXLDataset(Dataset):
         if n_dropped > 0:
             print(f"[PTBXLDataset] Dropping {n_dropped} records with missing files ({split} split)")
         self.df = df[valid_mask].reset_index(drop=True)
+
+        if max_samples is not None:
+            self.df = self.df.iloc[:max_samples].reset_index(drop=True)
 
     def __len__(self):
         return len(self.df)
