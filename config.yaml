@@ -10,10 +10,10 @@ device_id: 0
 
 # Experiment
 exp_name: pulse2pulse_exp_ptbxl_full
-out_dir: /home/vajira/DL/Pulse2Pulse_out/output
+out_dir: /work/vajira/DL2026/Pulse2Pulse/output
 
 # Weights & Biases
-wandb_project: Pulse2Pulse
+wandb_project: ECGEN_pulse2pulse_plus_paper
 
 # ============================================
 # Dataset
@@ -39,7 +39,7 @@ b2: 0.9
 num_epochs: 4000
 start_epoch: 0
 ngpus: 1
-checkpoint_interval: 25
+checkpoint_interval: 50
 model_size: 50
 lmbda: 10.0
 
