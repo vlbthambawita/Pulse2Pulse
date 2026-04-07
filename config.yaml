@@ -3,13 +3,13 @@
 # ============================================
 
 # Action: train | retrain | inference | check
-action: train
+action: retrain
 
 # Hardware
 device_id: 0
 
 # Experiment
-exp_name: pulse2pulse_exp_ptbxl_full
+exp_name: pulse2pulse_exp_ptbxl_full_retrain_from_950
 out_dir: /work/vajira/DL2026/Pulse2Pulse/output
 
 # Weights & Biases
@@ -44,4 +44,4 @@ model_size: 50
 lmbda: 10.0
 
 # Checkpoint path (used for retrain)
-checkpoint_path: ""
+checkpoint_path: "/work/vajira/DL2026/Pulse2Pulse/output/pulse2pulse_exp_ptbxl_full/checkpoints/pulse2pulse_exp_ptbxl_full_epoch:950.pt"
